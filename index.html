@@ -1,1 +1,342 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Latihan Merasionalkan Akar</title>
 
+<script>
+MathJax = {
+  tex: {inlineMath: [['\\(','\\)']]},
+  svg: {fontCache: 'global'}
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+
+<style>
+:root{--b:#3157d5;--p:#8b3fd1;--g:#168a50;--r:#c93d3d;--m:#667085;--l:#dbe3ef}
+*{box-sizing:border-box}
+body{margin:0;padding:22px;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}
+main{max-width:1000px;margin:auto}
+h1{text-align:center}
+.card{background:#fff;border:1px solid var(--l);border-radius:20px;padding:22px;box-shadow:0 12px 35px #1b2b5118}
+.hidden{display:none!important}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.mode{padding:18px;border:2px solid var(--l);border-radius:15px;background:#fff;cursor:pointer;text-align:left}
+.mode.active{border-color:var(--b);background:#eef2ff}
+label{display:block;font-weight:bold;margin:12px 0 6px}
+input,select,button{font:inherit}
+input,select{width:100%;padding:11px;border:1px solid var(--l);border-radius:10px}
+.primary{width:100%;margin-top:18px;padding:13px;border:0;border-radius:11px;background:var(--b);color:#fff;font-weight:bold;cursor:pointer}
+.score{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;margin-bottom:14px}
+.box{background:#fff;border:1px solid var(--l);border-radius:14px;padding:12px}
+.box:last-child{text-align:right}
+#round{text-align:center;font-weight:bold;color:var(--m)}
+.top{display:flex;justify-content:space-between;align-items:center}
+#timer{font-weight:bold;color:#9a6100}
+#question{display:grid;place-items:center;min-height:130px;margin:18px 0;background:#f8faff;border:1px dashed #aebdde;border-radius:16px;font-size:2.5rem}
+.panels{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.panel{border:1px solid var(--l);border-radius:15px;padding:12px}
+.panel h3{text-align:center;margin:0 0 10px}
+.options{display:grid;gap:9px}
+.answer{position:relative;min-height:58px;border:1px solid var(--l);border-radius:11px;background:#fff;cursor:pointer;font-size:1.15rem}
+.answer:disabled{cursor:not-allowed}
+.answer.selected{background:#eef3ff;border-color:#6f8ce8}
+.answer.correct{background:#e8f8ef;border-color:var(--g);color:#0f6c3d}
+.answer.wrong{background:#fff0f0;border-color:var(--r);color:#922}
+.key{position:absolute;left:7px;top:7px;font:12px Arial;background:#eef2f8;padding:4px 7px;border-radius:6px}
+#feedback{text-align:center;min-height:28px;margin-top:13px;font-weight:bold}
+.good{color:var(--g)}.bad{color:var(--r)}.info{color:#b47308}
+#result{text-align:center;max-width:620px;margin:auto}
+@media(max-width:700px){.grid,.panels{grid-template-columns:1fr}.score{grid-template-columns:1fr 1fr}.score #round{grid-column:1/-1;grid-row:1}.box:last-child{text-align:left}}
+</style>
+</head>
+
+<body>
+<main>
+<h1>LATIHAN MERASIONALKAN AKAR</h1>
+
+<section id="setup" class="card">
+  <h2>Pilih Mode Permainan</h2>
+  <div class="grid">
+    <button class="mode active" data-mode="solo"><b>🎯 Mode Solo</b><br>Latihan mandiri</button>
+    <button class="mode" data-mode="versus"><b>⚔️ Mode Versus</b><br>Dua pemain</button>
+  </div>
+
+  <div class="grid">
+    <div><label>Nama Pemain 1</label><input id="p1" value="Pemain 1"></div>
+    <div id="p2wrap" class="hidden"><label>Nama Pemain 2</label><input id="p2" value="Pemain 2"></div>
+    <div><label>Jumlah Soal</label>
+      <select id="total"><option>10</option><option>15</option><option>20</option></select>
+    </div>
+    <div><label>Waktu per Soal</label>
+      <select id="limit"><option>10</option><option selected>15</option><option>20</option></select>
+    </div>
+  </div>
+
+  <button id="start" class="primary">Mulai Permainan</button>
+</section>
+
+<section id="game" class="hidden">
+  <div class="score">
+    <div class="box"><small id="n1">Pemain 1</small><br><b id="s1">0</b></div>
+    <div id="round"></div>
+    <div id="score2" class="box hidden"><small id="n2">Pemain 2</small><br><b id="s2">0</b></div>
+  </div>
+
+  <div class="card">
+    <div class="top"><b>Rasionalkan penyebut berikut.</b><span id="timer"></span></div>
+    <div id="question"></div>
+    <div id="answers"></div>
+    <div id="feedback"></div>
+  </div>
+</section>
+
+<section id="result" class="card hidden">
+  <div style="font-size:60px">🏆</div>
+  <h2 id="resultTitle"></h2>
+  <p id="resultText"></p>
+  <button id="again" class="primary">Main Lagi</button>
+  <button id="back" class="primary" style="background:#667085">Kembali</button>
+</section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const M=x=>`\\(${x}\\)`;
+const shuffle=a=>[...a].sort(()=>Math.random()-.5);
+
+/* Format soal: [soal, jawaban benar, salah1, salah2, salah3] */
+const bank=[
+['\\frac{1}{\\sqrt2}','\\frac{\\sqrt2}{2}','\\sqrt2','2\\sqrt2','\\frac1{2\\sqrt2}'],
+['\\frac{3}{\\sqrt5}','\\frac{3\\sqrt5}{5}','3\\sqrt5','\\frac{\\sqrt5}{5}','\\frac{5\\sqrt3}{3}'],
+['\\frac{5}{\\sqrt7}','\\frac{5\\sqrt7}{7}','5\\sqrt7','\\frac{\\sqrt7}{5}','\\frac{7\\sqrt5}{5}'],
+['\\frac{7}{\\sqrt3}','\\frac{7\\sqrt3}{3}','7\\sqrt3','\\frac{\\sqrt3}{7}','\\frac{3\\sqrt7}{7}'],
+['\\frac{2}{\\sqrt6}','\\frac{\\sqrt6}{3}','\\frac{2\\sqrt6}{3}','\\frac{\\sqrt6}{6}','2\\sqrt6'],
+['\\frac4{\\sqrt{11}}','\\frac{4\\sqrt{11}}{11}','4\\sqrt{11}','\\frac{\\sqrt{11}}4','\\frac{11\\sqrt4}4'],
+['\\frac6{\\sqrt{13}}','\\frac{6\\sqrt{13}}{13}','6\\sqrt{13}','\\frac{\\sqrt{13}}6','\\frac{13\\sqrt6}6'],
+['\\frac8{\\sqrt{15}}','\\frac{8\\sqrt{15}}{15}','8\\sqrt{15}','\\frac{4\\sqrt{15}}{15}','\\frac{15\\sqrt8}8'],
+['\\frac9{\\sqrt{10}}','\\frac{9\\sqrt{10}}{10}','9\\sqrt{10}','\\frac{\\sqrt{10}}9','\\frac{10\\sqrt9}9'],
+['\\frac{12}{\\sqrt{17}}','\\frac{12\\sqrt{17}}{17}','12\\sqrt{17}','\\frac{6\\sqrt{17}}{17}','\\frac{17\\sqrt{12}}{12}'],
+['\\frac4{\\sqrt3+1}','2(\\sqrt3-1)','2(\\sqrt3+1)','4(\\sqrt3-1)','\\frac{4(\\sqrt3-1)}3'],
+['\\frac3{\\sqrt5+2}','3\\sqrt5-6','3\\sqrt5+6','\\sqrt5-2','\\frac{3(\\sqrt5-2)}9'],
+['\\frac5{\\sqrt7+3}','\\frac{5(3-\\sqrt7)}2','\\frac{5(\\sqrt7-3)}2','5(3-\\sqrt7)','\\frac{5(\\sqrt7+3)}2'],
+['\\frac2{\\sqrt2+1}','2\\sqrt2-2','2\\sqrt2+2','\\sqrt2-1','\\frac{2(\\sqrt2-1)}3'],
+['\\frac8{\\sqrt3-1}','4(\\sqrt3+1)','4(\\sqrt3-1)','8(\\sqrt3+1)','\\frac{8(\\sqrt3+1)}3'],
+['\\frac9{\\sqrt5-2}','9\\sqrt5+18','9\\sqrt5-18','3\\sqrt5+6','\\frac{9(\\sqrt5+2)}5'],
+['\\frac6{\\sqrt2+\\sqrt3}','6(\\sqrt3-\\sqrt2)','6(\\sqrt2-\\sqrt3)','6(\\sqrt3+\\sqrt2)','\\frac{6(\\sqrt3-\\sqrt2)}5'],
+['\\frac4{\\sqrt5+\\sqrt2}','\\frac{4(\\sqrt5-\\sqrt2)}3','\\frac{4(\\sqrt5+\\sqrt2)}3','4(\\sqrt5-\\sqrt2)','\\frac{4(\\sqrt2-\\sqrt5)}3'],
+['\\frac{10}{\\sqrt3-\\sqrt2}','10(\\sqrt3+\\sqrt2)','10(\\sqrt3-\\sqrt2)','5(\\sqrt3+\\sqrt2)','\\frac{10(\\sqrt3+\\sqrt2)}5'],
+['\\frac{2\\sqrt2}{\\sqrt3}','\\frac{2\\sqrt6}{3}','2\\sqrt6','\\frac{\\sqrt6}{3}','\\frac{2\\sqrt6}{6}']
+];
+
+let mode='solo',state={},clock;
+
+document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{
+  mode=b.dataset.mode;
+  document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('active',x===b));
+  $('p2wrap').classList.toggle('hidden',mode==='solo');
+});
+
+$('start').onclick=start;
+$('again').onclick=start;
+$('back').onclick=()=>{
+  clearInterval(clock);
+  $('result').classList.add('hidden');
+  $('setup').classList.remove('hidden');
+};
+
+function start(){
+  clearInterval(clock);
+  state={
+    mode,
+    names:[$('p1').value||'Pemain 1',$('p2').value||'Pemain 2'],
+    score:[0,0],
+    total:+$('total').value,
+    limit:+$('limit').value,
+    round:0,
+    deck:shuffle(bank).slice(0,+$('total').value),
+    answered:[false,false],
+    choice:[null,null],
+    done:false
+  };
+  $('n1').textContent=state.names[0];
+  $('n2').textContent=state.names[1];
+  $('score2').classList.toggle('hidden',mode==='solo');
+  $('setup').classList.add('hidden');
+  $('result').classList.add('hidden');
+  $('game').classList.remove('hidden');
+  updateScore();
+  next();
+}
+
+function next(){
+  clearInterval(clock);
+  if(state.round===state.total)return finish();
+
+  state.q=state.deck[state.round++];
+  state.options=shuffle(state.q.slice(1));
+  state.answered=[false,false];
+  state.choice=[null,null];
+  state.done=false;
+  state.time=state.limit;
+
+  $('round').textContent=`Soal ${state.round} dari ${state.total}`;
+  $('question').innerHTML=M(state.q[0]);
+  $('feedback').textContent='';
+  render();
+  tick();
+  clock=setInterval(()=>{
+    state.time--;
+    tick();
+    if(state.time<=0){
+      clearInterval(clock);
+      mode==='versus'?checkVersus(true):showSoloTimeout();
+    }
+  },1000);
+  typeset();
+}
+
+function render(){
+  if(mode==='solo'){
+    $('answers').innerHTML=`<div class="options" id="solo"></div>`;
+    state.options.forEach((x,i)=>$('solo').appendChild(button(0,x,i,i+1)));
+  }else{
+    $('answers').innerHTML=`
+      <div class="panels">
+        <div class="panel"><h3>${safe(state.names[0])} (1–4)</h3><div class="options" id="a0"></div></div>
+        <div class="panel"><h3>${safe(state.names[1])} (7,8,9,0)</h3><div class="options" id="a1"></div></div>
+      </div>`;
+    state.options.forEach((x,i)=>{
+      $('a0').appendChild(button(0,x,i,[1,2,3,4][i]));
+      $('a1').appendChild(button(1,x,i,[7,8,9,0][i]));
+    });
+  }
+}
+
+function button(player,text,index,key){
+  const b=document.createElement('button');
+  b.className='answer';
+  b.dataset.player=player;
+  b.dataset.index=index;
+  b.innerHTML=`<span class="key">${key}</span>${M(text)}`;
+  b.onclick=()=>answer(player,index);
+  return b;
+}
+
+function answer(player,index){
+  if(state.done||state.answered[player])return;
+  if(mode==='solo')return checkSolo(index);
+
+  state.answered[player]=true;
+  state.choice[player]=index;
+  const b=findButton(player,index);
+  b.classList.add('selected');
+  disable(player);
+
+  if(state.answered.every(Boolean))checkVersus(false);
+  else{
+    const other=1-player;
+    feedback(`Jawaban ${state.names[player]} dikunci. Menunggu ${state.names[other]}.`,'info');
+  }
+}
+
+function checkSolo(index){
+  state.done=true;
+  clearInterval(clock);
+  const correct=state.options[index]===state.q[1];
+
+  if(correct){
+    const point=10+state.time;
+    state.score[0]+=point;
+    feedback(`Benar! +${point} poin.`,'good');
+  }else{
+    state.score[0]=Math.max(0,state.score[0]-3);
+    feedback('Belum tepat. Jawaban benar ditandai hijau.','bad');
+  }
+  updateScore();
+  reveal([index]);
+  setTimeout(next,1500);
+}
+
+function checkVersus(timeout){
+  if(state.done)return;
+  state.done=true;
+  clearInterval(clock);
+  const point=10+state.time;
+  const result=[];
+
+  [0,1].forEach(p=>{
+    if(state.choice[p]===null)return result[p]='kosong';
+    const ok=state.options[state.choice[p]]===state.q[1];
+    result[p]=ok?'benar':'salah';
+    state.score[p]=ok?state.score[p]+point:Math.max(0,state.score[p]-3);
+  });
+
+  updateScore();
+  reveal(state.choice);
+  const prefix=timeout?'Waktu habis. ':'';
+  feedback(prefix+message(result,point),result.includes('benar')?'good':'bad');
+  setTimeout(next,1900);
+}
+
+function showSoloTimeout(){
+  state.done=true;
+  reveal([]);
+  feedback('Waktu habis. Jawaban benar ditandai hijau.','bad');
+  setTimeout(next,1500);
+}
+
+function reveal(choices){
+  document.querySelectorAll('.answer').forEach(b=>{
+    const i=+b.dataset.index,p=+b.dataset.player;
+    b.disabled=true;
+    b.classList.remove('selected');
+    if(state.options[i]===state.q[1])b.classList.add('correct');
+    else if(choices[p]===i)b.classList.add('wrong');
+  });
+}
+
+function message(r,point){
+  if(r[0]==='benar'&&r[1]==='benar')return `Keduanya benar! +${point} poin.`;
+  if(r[0]==='benar')return `${state.names[0]} benar (+${point}).`;
+  if(r[1]==='benar')return `${state.names[1]} benar (+${point}).`;
+  if(r.includes('salah'))return 'Jawaban belum tepat.';
+  return 'Tidak ada jawaban.';
+}
+
+function disable(player){
+  document.querySelectorAll(`[data-player="${player}"]`).forEach(b=>b.disabled=true);
+}
+function findButton(p,i){return document.querySelector(`[data-player="${p}"][data-index="${i}"]`)}
+function updateScore(){ $('s1').textContent=state.score[0]; $('s2').textContent=state.score[1] }
+function tick(){ $('timer').textContent=`${state.time} detik` }
+function feedback(text,type){ $('feedback').textContent=text; $('feedback').className=type }
+function typeset(){ if(window.MathJax?.typesetPromise)MathJax.typesetPromise() }
+function safe(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+function finish(){
+  clearInterval(clock);
+  $('game').classList.add('hidden');
+  $('result').classList.remove('hidden');
+
+  if(mode==='solo'){
+    $('resultTitle').textContent='Latihan Selesai';
+    $('resultText').textContent=`${state.names[0]} memperoleh ${state.score[0]} poin.`;
+  }else{
+    const [a,b]=state.score;
+    $('resultTitle').textContent=a===b?'Pertandingan Seri':`${a>b?state.names[0]:state.names[1]} Menang!`;
+    $('resultText').textContent=`${state.names[0]}: ${a} poin | ${state.names[1]}: ${b} poin`;
+  }
+}
+
+document.addEventListener('keydown',e=>{
+  if($('game').classList.contains('hidden')||state.done)return;
+  const solo={'1':0,'2':1,'3':2,'4':3};
+  const p2={'7':0,'8':1,'9':2,'0':3};
+  if(e.key in solo)answer(0,solo[e.key]);
+  if(mode==='versus'&&e.key in p2)answer(1,p2[e.key]);
+});
+</script>
+</body>
+</html>
